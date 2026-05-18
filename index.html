@@ -102,7 +102,15 @@ async function saveLogs(logs) {
 // ── テストデータ ──────────────────────────────────────
 function makeTestLogs() {
   const base = new Date();
-  const data = [];
+  const data = [
+    { offset: -6, 朝: ["卵", "牛乳", "パン"], 昼: ["小麦", "豚肉", "トマト"], 夜: ["チョコレート", "牛乳"], score: 3, sleep: 5, stress: 3, weather: "☀️ 晴", tempHigh: 26, tempLow: 14, pollen: "🔴 非常に多い", pollenTypes: ["スギ"], cleaning: false, laundry: "外干し", ventilation: true, exercise: [], memo: "腕がかゆい" },
+    { offset: -5, 朝: ["白米", "豆腐", "きのこ"], 昼: ["魚", "葉物野菜", "根菜"], 夜: ["白米", "鶏肉"], score: 1, sleep: 7.5, stress: 1, weather: "⛅ 曇", tempHigh: 20, tempLow: 15, pollen: "🟡 やや多い", pollenTypes: ["スギ"], cleaning: true, laundry: "室内干し", ventilation: false, exercise: ["🧘 ヨガ"], exerciseTime: "30分", exerciseIntensity: "😌 軽め", memo: "" },
+    { offset: -4, 朝: ["卵", "パン", "牛乳"], 昼: ["パン", "チョコレート"], 夜: ["牛肉", "アルコール", "小麦"], score: 4, sleep: 4, stress: 4, weather: "🌧 雨", tempHigh: 18, tempLow: 16, pollen: "🟢 少ない", pollenTypes: [], cleaning: false, laundry: "室内干し", ventilation: false, exercise: ["🏃 ランニング"], exerciseTime: "30分", exerciseIntensity: "😤 ハード", memo: "顔と首がひどい" },
+    { offset: -3, 朝: ["白米", "魚", "豆腐"], 昼: ["根菜", "豆腐", "きのこ"], 夜: ["鶏肉", "葉物野菜"], score: 1, sleep: 8, stress: 1, weather: "☀️ 晴", tempHigh: 22, tempLow: 14, pollen: "🟠 多い", pollenTypes: ["スギ", "ヒノキ"], cleaning: true, laundry: "外干し", ventilation: true, exercise: ["🧘 ヨガ", "🤸 ストレッチ"], exerciseTime: "30分", exerciseIntensity: "😌 軽め", memo: "だいぶ落ち着いた" },
+    { offset: -2, 朝: ["パン", "卵", "コーヒー"], 昼: ["小麦", "トマト", "なす"], 夜: ["チョコレート", "ナッツ"], score: 3, sleep: 5.5, stress: 3, weather: "⛅ 曇", tempHigh: 24, tempLow: 10, pollen: "🔴 非常に多い", pollenTypes: ["スギ", "ヒノキ"], cleaning: false, laundry: "外干し", ventilation: true, exercise: [], memo: "背中がかゆい" },
+    { offset: -1, 朝: ["白米", "魚", "葉物野菜"], 昼: ["豆腐", "根菜", "きのこ"], 夜: ["鶏肉", "白米"], score: 0, sleep: 8, stress: 0, weather: "☀️ 晴", tempHigh: 20, tempLow: 17, pollen: "🟡 やや多い", pollenTypes: ["ヒノキ"], cleaning: true, laundry: "室内干し", ventilation: false, exercise: ["🧘 ヨガ"], exerciseTime: "60分", exerciseIntensity: "😊 普通", memo: "調子いい！" },
+    { offset:  0, 朝: ["卵", "牛乳", "パン"], 昼: ["チョコレート", "コーヒー"], 夜: ["小麦", "豚肉"], score: 3, sleep: 6, stress: 2, weather: "🌧 雨", tempHigh: 17, tempLow: 15, pollen: "🟢 少ない", pollenTypes: [], cleaning: false, laundry: "室内干し", ventilation: false, exercise: [], memo: "" },
+  ];
   const logs = {};
   data.forEach(({ offset, ...rest }) => {
     const d = new Date(base);
@@ -396,8 +404,49 @@ function generateAdvice(logs) {
     }
   }
 
+  // ── 運動 ──────────────────────────────────────────────
+  const withEx    = scored.filter(d => d.exercise && d.exercise.length > 0);
+  const withoutEx = scored.filter(d => !d.exercise || d.exercise.length === 0);
+  const avgEx    = withEx.length    ? withEx.reduce((s, d) => s + d.score, 0) / withEx.length : null;
+  const avgNoEx  = withoutEx.length ? withoutEx.reduce((s, d) => s + d.score, 0) / withoutEx.length : null;
 
-  const overallAvg = scored.reduce((s, d) => s + d.score, 0) / scored.length;
+  if (avgEx != null && avgNoEx != null && withEx.length >= 2) {
+    if (avgEx - avgNoEx <= -0.8) {
+      advice.push({
+        level: "good", icon: "🏃",
+        title: "運動した日は症状が落ち着いています",
+        body: `運動した日の平均スコアは ${avgEx.toFixed(1)}、しなかった日は ${avgNoEx.toFixed(1)} です。`,
+        action: "運動習慣を続けましょう。ヨガやウォーキングなど無理のない範囲で。"
+      });
+    } else if (avgEx - avgNoEx >= 0.8) {
+      advice.push({
+        level: "info", icon: "🏃",
+        title: "運動後に症状が出やすいかもしれません",
+        body: `運動した日の平均スコアは ${avgEx.toFixed(1)}、しなかった日は ${avgNoEx.toFixed(1)} です。`,
+        action: "汗をかいたらすぐシャワーを。激しい運動よりヨガやウォーキングから試してみましょう。"
+      });
+    }
+  }
+
+  // 運動種類別
+  const exTypes = ["🧘 ヨガ", "🚶 ウォーキング", "🏃 ランニング", "💪 筋トレ", "🤸 ストレッチ"];
+  const exAvgs = exTypes.map(type => {
+    const days = scored.filter(d => (d.exercise || []).includes(type));
+    const a = days.length >= 2 ? days.reduce((s, d) => s + d.score, 0) / days.length : null;
+    return { type, avg: a, count: days.length };
+  }).filter(e => e.avg != null).sort((a, b) => a.avg - b.avg);
+
+  if (exAvgs.length > 0) {
+    const best = exAvgs[0];
+    advice.push({
+      level: "good", icon: "✨",
+      title: `${best.type} の日は特に症状が落ち着いています`,
+      body: `${best.type} をした日の平均スコアは ${best.avg.toFixed(1)} です（${best.count}回のデータより）。`,
+      action: `${best.type} はあなたの肌に合っているようです。積極的に取り入れてみましょう。`
+    });
+  }
+
+ = scored.reduce((s, d) => s + d.score, 0) / scored.length;
   const trend = (() => {
     if (scored.length < 4) return null;
     const half = Math.floor(scored.length / 2);
@@ -578,7 +627,7 @@ function SplashScreen({ onStart }) {
   const faceImg = { happy: MIO_HAPPY, thinking: MIO_THINKING, surprised: MIO_SURPRISED, normal: MIO_NORMAL };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #eef6ea 0%, #e8f2f8 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #eef6ea 0%, #e8f2f8 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "sans-serif" }}>
       <div style={{ fontSize: 28, fontWeight: 900, color: "#2d5a38", marginBottom: 4 }}>🧭 あとぴなび</div>
       <div style={{ fontSize: 12, color: "#90aa88", marginBottom: 40 }}>食事・生活習慣から、自分の体質をさがす</div>
       <img src={faceImg[cur.face]} alt="みお"
@@ -694,6 +743,40 @@ function App() {
     if (!todayLogged && totalDays > 0)    return { face: "thinking",  text: "今日の記録まだだよ。症状スコアだけでもOK！" };
     return { face: "normal", text: "今日の食事・症状を記録してみよう🌿" };
   };
+
+  // ── ポイント計算 ──────────────────────────────────────
+  const MILESTONES = [
+    { pt: 100,  face: "happy",     msg: "100ポイント達成！🎉 続けてくれてありがとう。自分のこと、ちゃんと大切にしてるね🌿" },
+    { pt: 300,  face: "happy",     msg: "300ポイント！✨ データがどんどん育ってるよ。分析がより正確になってきた！" },
+    { pt: 500,  face: "surprised", msg: "500ポイント達成！🎊 あなたの体質レポートがより詳しくなってきたよ！" },
+    { pt: 1000, face: "happy",     msg: "1000ポイント達成！特別クーポンをプレゼント🎁" },
+  ];
+
+  const calcPoints = () => {
+    let pt = 0;
+    Object.values(logs).forEach(day => {
+      if (day.score != null) pt += 10;
+      const foods = [...(day["朝"] || []), ...(day["昼"] || []), ...(day["夜"] || [])];
+      if (foods.length > 0) pt += 5;
+      if (day.sleep != null || day.stress != null || day.weather || day.pollen) pt += 5;
+    });
+    pt += streak * 10;
+    return pt;
+  };
+  const points = calcPoints();
+  const nextMilestone = MILESTONES.find(m => points < m.pt);
+
+  const getWelcomeMsg = () => {
+    const h = new Date().getHours();
+    const todayLogged = logs[todayKey()]?.score != null;
+    if (todayLogged) return { face: "happy",   text: "また来てくれたね、嬉しい😊 今日のデータ、ちゃんと受け取ったよ🌿" };
+    if (h >= 5  && h < 10) return { face: "normal",   text: "おはよう！今日も一緒に記録しよう🌅" };
+    if (h >= 10 && h < 17) return { face: "normal",   text: "おかえり！今日はどんな日だった？" };
+    if (h >= 17 && h < 21) return { face: "thinking", text: "今日の記録、一緒にしようか🌙" };
+    return { face: "normal", text: "今日も来てくれたね、嬉しい🌿" };
+  };
+  const welcomeMsg = getWelcomeMsg();
+
   const mioMsg = getMioMessage();
 
   if (!loaded) return (
@@ -701,7 +784,7 @@ function App() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(150deg, #eef6ea 0%, #e8f2f8 100%)", fontFamily: "'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(150deg, #eef6ea 0%, #e8f2f8 100%)", fontFamily: "sans-serif" }}>
 
 
 
@@ -726,7 +809,7 @@ function App() {
           </div>
           {/* タブ */}
           <div style={{ display: "flex" }}>
-            {[["record", "📝 今日"], ["analysis", "📊 分析"], ["history", "📅 履歴"]].map(([k, l]) => (
+            {[["record", "📝 今日"], ["analysis", "📊 分析"], ["history", "📅 履歴"], ["point", "🎁 pt"]].map(([k, l]) => (
               <button key={k} onClick={() => setTab(k)} style={{
                 flex: 1, padding: "8px 0", border: "none", background: "transparent",
                 borderBottom: tab === k ? "2.5px solid #4a7c59" : "2.5px solid transparent",
@@ -744,6 +827,7 @@ function App() {
         {/* 記録タブ */}
         {tab === "record" && (
           <div>
+            <MioSpeech face={welcomeMsg.face} text={welcomeMsg.text} />
             <MioSpeech face={mioMsg.face} text={mioMsg.text} />
 
             {/* 日付ナビ */}
@@ -904,6 +988,68 @@ function App() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* 運動記録 */}
+            <div style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 14, boxShadow: "0 1px 8px #d0e8c820" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#5a8a5a", marginBottom: 14 }}>🏃 運動</div>
+
+              {/* 種類 */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: "#7a9a7a", marginBottom: 6 }}>種類（複数選択可）</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {["🧘 ヨガ", "🚶 ウォーキング", "🏃 ランニング", "💪 筋トレ", "🏊 水泳", "🤸 ストレッチ", "その他"].map(ex => {
+                    const active = (day.exercise || []).includes(ex);
+                    return (
+                      <button key={ex} onClick={() => {
+                        const cur = day.exercise || [];
+                        update({ exercise: active ? cur.filter(x => x !== ex) : [...cur, ex] });
+                      }} style={{
+                        padding: "5px 12px", borderRadius: 20, cursor: "pointer", fontSize: 12,
+                        border: active ? "2px solid #6a9a8a" : "1.5px solid #d8e8d0",
+                        background: active ? "#6a9a8a" : "#f6faf3",
+                        color: active ? "#fff" : "#556655",
+                        fontFamily: "inherit", transition: "all 0.15s",
+                      }}>{ex}</button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 時間 */}
+              {(day.exercise || []).length > 0 && (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, color: "#7a9a7a", marginBottom: 6 }}>⏱ 時間</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["15分", "30分", "60分", "60分以上"].map(t => (
+                        <button key={t} onClick={() => update({ exerciseTime: t })} style={{
+                          padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12,
+                          border: day.exerciseTime === t ? "2px solid #6a9a8a" : "1.5px solid #d8e8d0",
+                          background: day.exerciseTime === t ? "#6a9a8a" : "#f6faf3",
+                          color: day.exerciseTime === t ? "#fff" : "#556655",
+                          fontFamily: "inherit", transition: "all 0.15s",
+                        }}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 12, color: "#7a9a7a", marginBottom: 6 }}>💦 強度</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["😌 軽め", "😊 普通", "😤 ハード"].map(i => (
+                        <button key={i} onClick={() => update({ exerciseIntensity: i })} style={{
+                          padding: "5px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12,
+                          border: day.exerciseIntensity === i ? "2px solid #6a9a8a" : "1.5px solid #d8e8d0",
+                          background: day.exerciseIntensity === i ? "#6a9a8a" : "#f6faf3",
+                          color: day.exerciseIntensity === i ? "#fff" : "#556655",
+                          fontFamily: "inherit", transition: "all 0.15s",
+                        }}>{i}</button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 食事記録 */}
@@ -1091,6 +1237,63 @@ function App() {
                 </div>
               );
             })}
+
+          </div>
+        )}
+
+        {/* ポイントタブ */}
+        {tab === "point" && (
+          <div>
+            <MioSpeech face={points >= 1000 ? "happy" : points >= 100 ? "happy" : "normal"}
+              text={points >= 1000 ? "1000ポイント達成！クーポンをゲットしたね🎁" : points > 0 ? "ポイントが貯まってきたよ！続けてね🌿" : "記録するとポイントが貯まるよ😊"} />
+
+            <div style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 14, boxShadow: "0 1px 8px #d0e8c820", textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#90aa88", marginBottom: 6 }}>累計ポイント</div>
+              <div style={{ fontSize: 52, fontWeight: 900, color: "#4a7c59", lineHeight: 1 }}>{points.toLocaleString()}</div>
+              <div style={{ fontSize: 14, color: "#90aa88", marginTop: 4 }}>pt</div>
+              {nextMilestone && (
+                <div style={{ marginTop: 12, fontSize: 12, color: "#7a9a7a", background: "#f0f8f0", borderRadius: 8, padding: "6px 12px", display: "inline-block" }}>
+                  次のご褒美まで あと {nextMilestone.pt - points} pt 🎯
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 14, boxShadow: "0 1px 8px #d0e8c820" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#5a8a5a", marginBottom: 12 }}>📝 ポイントの貯め方</div>
+              {[["症状スコアを記録", "+10pt"], ["食事を記録", "+5pt"], ["生活習慣を記録", "+5pt"], ["連続記録ボーナス（1日につき）", "+10pt"]].map(([label, pt]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                  <span style={{ color: "#445544" }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: "#4a7c59", background: "#f0f8f0", borderRadius: 6, padding: "2px 10px" }}>{pt}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 8px #d0e8c820" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#5a8a5a", marginBottom: 12 }}>🎁 ご褒美マイルストーン</div>
+              {MILESTONES.map(m => {
+                const achieved = points >= m.pt;
+                return (
+                  <div key={m.pt} style={{ marginBottom: 12, borderRadius: 10, border: achieved ? "2px solid #4a7c59" : "1.5px solid #e0e8d8", padding: "12px 14px", background: achieved ? "#f0faf0" : "#fafafa" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: achieved ? "#4a7c59" : "#bbb", minWidth: 55 }}>{m.pt}pt</div>
+                      <div style={{ fontSize: 12, color: achieved ? "#2d5a38" : "#999", flex: 1 }}>{m.msg}</div>
+                      {achieved && <div style={{ fontSize: 16 }}>✅</div>}
+                    </div>
+                    {achieved && m.pt === 1000 && (
+                      <div style={{ background: "#2d5a38", borderRadius: 8, padding: "10px 14px", marginTop: 8 }}>
+                        <div style={{ fontSize: 12, color: "#a8d8b0", marginBottom: 4 }}>クーポンコード</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: 2 }}>PUREGRACE10</div>
+                        <div style={{ fontSize: 11, color: "#a8d8b0", marginTop: 4 }}>PureGraceショップでご利用いただけます🌿</div>
+                        <a href="https://puregrace.shopselect.net" target="_blank" rel="noopener noreferrer"
+                          style={{ display: "block", marginTop: 8, fontSize: 12, color: "#d8f0d8", textDecoration: "underline" }}>
+                          ショップを見てみる →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
