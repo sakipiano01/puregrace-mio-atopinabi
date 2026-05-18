@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#eef6ea">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.4/babel.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #eef6ea; font-family: 'Hiragino Kaku Gothic Pro', 'Noto Sans JP', sans-serif; }
@@ -20,6 +20,7 @@
 </head>
 <body>
   <div id="root"></div>
+  <div id="error" style="display:none;padding:20px;color:red;font-family:sans-serif;"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
@@ -446,7 +447,7 @@ function generateAdvice(logs) {
     });
   }
 
- = scored.reduce((s, d) => s + d.score, 0) / scored.length;
+  const overallAvg = scored.reduce((s, d) => s + d.score, 0) / scored.length;
   const trend = (() => {
     if (scored.length < 4) return null;
     const half = Math.floor(scored.length / 2);
@@ -1302,8 +1303,13 @@ function App() {
 }
 
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    try {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    } catch(e) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'エラー: ' + e.message;
+    }
   </script>
 </body>
 </html>
